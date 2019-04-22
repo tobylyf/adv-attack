@@ -1,8 +1,8 @@
 #!/bin/bash
 
 python run_deepfool.py \
-    --gpu '1,3,6,9' \
+    --gpu '0,1,2,3' \
     --imagenet_dir '/DATA4_DB3/data/kydu/data/' \
     --save_dir '/DATA5_DB8/data/yfli/datasets/tmp_deepfool/' \
-    -p 'val' \
-    -b 16
+    -p 'train' \
+    -b 256

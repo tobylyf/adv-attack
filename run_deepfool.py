@@ -82,7 +82,7 @@ clf.to(device)
 clf = nn.DataParallel(clf)
 clf.eval()
 
-deepfool = DeepFool(nb_candidate=10, max_iter=50)
+deepfool = DeepFool(nb_candidate=10, max_iter=100)
 
 cudnn.benchmark = True
 
