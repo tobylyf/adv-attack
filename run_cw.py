@@ -82,7 +82,7 @@ clf.to(device)
 clf = nn.DataParallel(clf)
 clf.eval()
 
-attacker = CarliniWagnerL2((0.0, 1.0), 1000, learning_rate=0.01, search_steps=9, max_iterations=10000,
+attacker = CarliniWagnerL2((0.0, 1.0), 1000, learning_rate=0.01, search_steps=4, max_iterations=25,
                            initial_const=10, quantize=False, device=device)
 
 cudnn.benchmark = True
