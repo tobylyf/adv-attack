@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 from mixed_folder import PairedDatasetFolder
 from network import MLP
-from utils import Visualizer
+# from utils import Visualizer
 
 parser = argparse.ArgumentParser(description='Adversarial MLP Training')
 parser.add_argument('--gpu', '--gpu_ids', type=str, required=True)
@@ -86,10 +86,10 @@ def save_checkpoint(state, is_best, filename='checkpoint.tar'):
         shutil.copyfile(path, os.path.join(directory, 'best.tar'))
 
 
-vis = Visualizer(env=args.name, server='http://202.120.39.167', port=8099)
+# vis = Visualizer(env=args.name, server='http://202.120.39.167', port=8099)
 
 print('\nsetting seeds...')
-vis.log('setting seeds...')
+# vis.log('setting seeds...')
 random.seed(args.seed)
 np.random.seed(args.seed)
 torch.manual_seed(args.seed)
@@ -102,7 +102,7 @@ transform = transforms.Compose([
     transforms.ToTensor()
 ])
 print('loading datasets...')
-vis.log('loading datasets...')
+# vis.log('loading datasets...')
 if True:  # for debugging
     train_set = PairedDatasetFolder(os.path.join(IMAGENET_ADV, 'train/'), os.path.join(IMAGENET_CLEAN, 'train/'),
                                     loader=np.load, extensions=['.npy'], transform=torch.from_numpy)
@@ -115,16 +115,16 @@ val_loader = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 print('building models...')
-vis.log('building models...')
-clf = models.resnet50(pretrained=True)
+# vis.log('building models...')
+# clf = models.resnet50(pretrained=True)
 # clf.avgpool = nn.AdaptiveAvgPool2d(1)
-for param in clf.parameters():
-    param.requires_grad = False
-clf.to(device)
-clf.eval()
-clf_norm = Normalization(IMAGENET_MEAN, IMAGENET_STD)
-clf_norm.to(device)
-clf_norm.eval()
+# for param in clf.parameters():
+#     param.requires_grad = False
+# clf.to(device)
+# clf.eval()
+# clf_norm = Normalization(IMAGENET_MEAN, IMAGENET_STD)
+# clf_norm.to(device)
+# clf_norm.eval()
 """fixed"""
 
 net = MLP(n_layers=args.n_layers, width=args.width)
@@ -162,14 +162,14 @@ cudnn.benchmark = True
 for epoch in range(args.epochs):
     print('\nEpoch {}/{}'.format(epoch + 1, args.epochs))
     print('-' * 20)
-    vis.log('\nEpoch {}/{}'.format(epoch + 1, args.epochs))
-    vis.log('-' * 20)
+    # vis.log('\nEpoch {}/{}'.format(epoch + 1, args.epochs))
+    # vis.log('-' * 20)
 
     # scheduler.step()
 
     # training phase
     print('training phase')
-    vis.log('training phase')
+    # vis.log('training phase')
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -210,21 +210,21 @@ for epoch in range(args.epochs):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                   'Acc@1 {top1.val:.2f} ({top1.avg:.2f})\t'.format(
                 epoch, step, len(train_loader), batch_time=batch_time, loss=losses, top1=top1))
-            vis.log('Epoch: [{0}][{1}/{2}]\t'
-                    'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                    'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                    'Acc@1 {top1.val:.2f} ({top1.avg:.2f})\t'.format(
-                epoch, step, len(train_loader), batch_time=batch_time, loss=losses, top1=top1))
+            # vis.log('Epoch: [{0}][{1}/{2}]\t'
+            #         'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+            #         'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+            #         'Acc@1 {top1.val:.2f} ({top1.avg:.2f})\t'.format(
+            #     epoch, step, len(train_loader), batch_time=batch_time, loss=losses, top1=top1))
 
     train_loss = losses.avg
     train_acc = top1.avg
     train_losses.append(train_loss)
     train_accs.append(train_acc)
-    vis.plot_many({'train loss': train_loss, 'train acc': train_acc})
+    # vis.plot_many({'train loss': train_loss, 'train acc': train_acc})
 
     # validation phase
     print('validation phase')
-    vis.log('validation phase')
+    # vis.log('validation phase')
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -259,19 +259,19 @@ for epoch in range(args.epochs):
                   'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
                   'Acc@1 {top1.val:.2f} ({top1.avg:.2f})\t'.format(
                 step, len(val_loader), batch_time=batch_time, loss=losses, top1=top1))
-            vis.log('Test: [{0}/{1}]\t'
-                    'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                    'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                    'Acc@1 {top1.val:.2f} ({top1.avg:.2f})\t'.format(
-                step, len(val_loader), batch_time=batch_time, loss=losses, top1=top1))
+            # vis.log('Test: [{0}/{1}]\t'
+            #         'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+            #         'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+            #         'Acc@1 {top1.val:.2f} ({top1.avg:.2f})\t'.format(
+            #     step, len(val_loader), batch_time=batch_time, loss=losses, top1=top1))
 
     test_loss = losses.avg
     test_acc = top1.avg
     test_losses.append(test_loss)
     test_accs.append(test_acc)
     print(' * Acc@1 {top1.avg:.2f}%'.format(top1=top1))
-    vis.log(' * Acc@1 {top1.avg:.2f}%'.format(top1=top1))
-    vis.plot_many({'test loss': test_loss, 'test acc': test_acc})
+    # vis.log(' * Acc@1 {top1.avg:.2f}%'.format(top1=top1))
+    # vis.plot_many({'test loss': test_loss, 'test acc': test_acc})
 
     is_best = test_acc > best_acc
     best_acc = max(test_acc, best_acc)
@@ -285,4 +285,4 @@ for epoch in range(args.epochs):
         log_writer.writerow([epoch + 1, train_loss, train_acc, test_loss, test_acc, best_acc])
 
 print('\nBest accuracy: {:.2f}%'.format(best_acc))
-vis.log('\nBest accuracy: {:.2f}%'.format(best_acc))
+# vis.log('\nBest accuracy: {:.2f}%'.format(best_acc))
