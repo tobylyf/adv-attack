@@ -240,3 +240,33 @@ class MixedDatasetFolder(DatasetFolder):
             target = self.target_transform(target)
 
         return sample, target
+
+
+class PairedDatasetFolder(DatasetFolder):
+    def __init__(self, root_adv, root_clean, loader, extensions, transform=None, target_transform=None):
+        super(PairedDatasetFolder, self).__init__(root_adv, loader, extensions,
+                                                  transform=transform,
+                                                  target_transform=target_transform)
+        self.root_clean = root_clean
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (sample_adv, sample_clean, target) where target is class_index of the target class.
+        """
+        path_adv, target = self.samples[index]
+        tname, fname = path_adv.split('/')[-2:]
+        path_clean = os.path.join(self.root_clean, tname, fname)
+        sample_adv = self.loader(path_adv)
+        sample_clean = self.loader(path_clean)
+
+        if self.transform is not None:
+            sample_adv = self.transform(sample_adv)
+            sample_clean = self.transform(sample_clean)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return sample_adv, sample_clean, target
