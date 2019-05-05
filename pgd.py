@@ -1,3 +1,4 @@
+import argparse
 import os
 import random
 import time
@@ -17,16 +18,38 @@ from cleverhans.model import CallableModelWrapper
 from cleverhans.utils_pytorch import convert_pytorch_model_to_tf
 from torch.utils.data import DataLoader
 
-IMAGENET_DIR = ''
+parser = argparse.ArgumentParser(description='PGD Attack')
+parser.add_argument('--gpu', '--gpu_ids', type=str, required=True)
+parser.add_argument('--imagenet_dir', type=str, required=True)
+parser.add_argument('--save_dir', type=str, required=True)
+parser.add_argument('-p', '--phase', default='train', type=str)
+parser.add_argument('-b', '--batch_size', default=256, type=int)
+parser.add_argument('-m', '--model', type=str, choices=['AlexNet', 'VGG16', 'ResNet50', 'DenseNet121'], required=True)
+
+args = parser.parse_args()
+
+IMAGENET_DIR = args.imagenet_dir
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
-SAVE_DIR = ''
-PHASE = 'train'
-BATCH_SIZE = 256
-WEIGHT_PATH = ''
+SAVE_DIR = args.save_dir
+PHASE = args.phase
+BATCH_SIZE = args.batch_size
 """note the GPU type problem!!!"""
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+
+model_list = {
+    'AlexNet': models.alexnet(),
+    'VGG16': models.vgg16_bn(),
+    'ResNet50': models.resnet50(),
+    'DenseNet121': models.densenet121()
+}
+model_weights = {
+    'AlexNet': 'xxx/alexnet-owt-4df8aa71.pth',
+    'VGG16': 'xxx/vgg16_bn-6c64b313.pth',
+    'ResNet50': 'xxx/resnet50-19c8e357.pth',
+    'DenseNet121': 'xxx/densenet121-a639ec97.pth'
+}
 
 
 class Normalization(nn.Module):
@@ -71,8 +94,8 @@ train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_w
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 print('building model...')
-model = models.vgg16_bn()
-model.load_state_dict(torch.load(WEIGHT_PATH))
+model = model_list[args.model]
+model.load_state_dict(torch.load(model_weights[args.model]))
 # model = gcv.models.resnet50(pretrained=True, dilated=False, deep_base=False)
 clf = Classifier(model)
 clf.to(device)
