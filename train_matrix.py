@@ -195,8 +195,8 @@ for epoch in range(args.epochs):
         _, pred = output.max(dim=1)
         correct = pred.eq(labels)
         acc = correct.double().mean() * 100.0
-        losses.update(loss.item(), logits.size(0))
-        top1.update(acc.item(), logits.size(0))
+        losses.update(loss.item(), logits_adv.size(0))
+        top1.update(acc.item(), logits_adv.size(0))
 
         optimizer.zero_grad()
         loss.backward()
