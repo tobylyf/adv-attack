@@ -270,3 +270,137 @@ class PairedDatasetFolder(DatasetFolder):
             target = self.target_transform(target)
 
         return sample_adv, sample_clean, target
+
+
+def partiral_dataset(dir, class_to_idx, extensions, is_train):
+    images = []
+    count = 0
+    dir = os.path.expanduser(dir)
+    for target in sorted(os.listdir(dir)):
+        d = os.path.join(dir, target)
+        if not os.path.isdir(d):
+            continue
+
+        divided = (count % 5 == 0)
+        count += 1
+        if is_train and divided:
+            continue
+        elif not is_train and not divided:
+            continue
+
+        for root, _, fnames in sorted(os.walk(d)):
+            for fname in sorted(fnames):
+                if has_file_allowed_extension(fname, extensions):
+                    path = os.path.join(root, fname)
+                    item = (path, class_to_idx[target])
+                    images.append(item)
+
+    return images
+
+
+class PartialDatasetFolder(data.Dataset):
+    """A generic data loader where the samples are arranged in this way: ::
+
+        root/class_x/xxx.ext
+        root/class_x/xxy.ext
+        root/class_x/xxz.ext
+
+        root/class_y/123.ext
+        root/class_y/nsdf3.ext
+        root/class_y/asd932_.ext
+
+    Args:
+        root (string): Root directory path.
+        is_train (bool): Whether is training set.
+        loader (callable): A function to load a sample given its path.
+        extensions (list[string]): A list of allowed extensions.
+        transform (callable, optional): A function/transform that takes in
+            a sample and returns a transformed version.
+            E.g, ``transforms.RandomCrop`` for images.
+        target_transform (callable, optional): A function/transform that takes
+            in the target and transforms it.
+
+     Attributes:
+        classes (list): List of the class names.
+        class_to_idx (dict): Dict with items (class_name, class_index).
+        samples (list): List of (sample path, class_index) tuples
+    """
+
+    def __init__(self, root, is_train, loader, extensions, transform=None, target_transform=None):
+        classes, class_to_idx = find_classes(root)
+        samples = partiral_dataset(root, class_to_idx, extensions, is_train)
+        if len(samples) == 0:
+            raise (RuntimeError("Found 0 files in subfolders of: " + root + "\n"
+                                                                            "Supported extensions are: " + ",".join(
+                extensions)))
+
+        self.root = root
+        self.is_train = is_train
+        self.loader = loader
+        self.extensions = extensions
+
+        self.classes = classes
+        self.class_to_idx = class_to_idx
+        self.samples = samples
+
+        self.transform = transform
+        self.target_transform = target_transform
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (sample, target) where target is class_index of the target class.
+        """
+        path, target = self.samples[index]
+        sample = self.loader(path)
+        if self.transform is not None:
+            sample = self.transform(sample)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return sample, target
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __repr__(self):
+        fmt_str = 'Dataset ' + self.__class__.__name__ + '\n'
+        fmt_str += '    Number of datapoints: {}\n'.format(self.__len__())
+        fmt_str += '    Root Location: {}\n'.format(self.root)
+        tmp = '    Transforms (if any): '
+        fmt_str += '{0}{1}\n'.format(tmp, self.transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
+        tmp = '    Target Transforms (if any): '
+        fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
+        return fmt_str
+
+
+class MixedPartialDatasetFolder(PartialDatasetFolder):
+    def __init__(self, root_adv, root_clean, is_train, p, loader, extensions, transform=None, target_transform=None):
+        super(MixedPartialDatasetFolder, self).__init__(root_adv, is_train, loader, extensions,
+                                                        transform=transform,
+                                                        target_transform=target_transform)
+        self.root_clean = root_clean
+        self.p = p
+
+    def __getitem__(self, index):
+        """
+        Args:
+            index (int): Index
+
+        Returns:
+            tuple: (sample, target) where target is class_index of the target class.
+        """
+        path, target = self.samples[index]
+        if random.random() < self.p:
+            tname, fname = path.split('/')[-2:]
+            path = os.path.join(self.root_clean, tname, fname)
+        sample = self.loader(path)
+        if self.transform is not None:
+            sample = self.transform(sample)
+        if self.target_transform is not None:
+            target = self.target_transform(target)
+
+        return sample, target
