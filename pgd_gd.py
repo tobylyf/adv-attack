@@ -3,20 +3,20 @@ import os
 import random
 import time
 
-# import gluoncvth as gcv
 import numpy as np
 import tensorflow as tf
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torchvision.datasets as datasets
-import torchvision.models as models
 import torchvision.transforms as transforms
 import torchvision.utils as utils
-from cleverhans.attacks import MadryEtAl, ProjectedGradientDescent
+from cleverhans.attacks import ProjectedGradientDescent
 from cleverhans.model import CallableModelWrapper
 from cleverhans.utils_pytorch import convert_pytorch_model_to_tf
 from torch.utils.data import DataLoader
+
+from res152_wide import get_model
 
 parser = argparse.ArgumentParser(description='PGD Attack')
 parser.add_argument('--gpu', '--gpu_ids', type=str, required=True)
@@ -24,7 +24,7 @@ parser.add_argument('--imagenet_dir', type=str, required=True)
 parser.add_argument('--save_dir', type=str, required=True)
 parser.add_argument('-p', '--phase', default='train', type=str)
 parser.add_argument('-b', '--batch_size', default=256, type=int)
-parser.add_argument('-m', '--model', type=str, choices=['AlexNet', 'VGG16', 'ResNet50', 'DenseNet121'], required=True)
+parser.add_argument('-w', '--weight', type=str, required=True)
 
 args = parser.parse_args()
 
@@ -37,19 +37,6 @@ BATCH_SIZE = args.batch_size
 """note the GPU type problem!!!"""
 
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
-
-model_list = {
-    'AlexNet': models.alexnet(),
-    'VGG16': models.vgg16_bn(),
-    'ResNet50': models.resnet50(),
-    'DenseNet121': models.densenet121()
-}
-model_weights = {
-    'AlexNet': 'xxx/alexnet-owt-4df8aa71.pth',
-    'VGG16': 'xxx/vgg16_bn-6c64b313.pth',
-    'ResNet50': 'xxx/resnet50-19c8e357.pth',
-    'DenseNet121': 'xxx/densenet121-a639ec97.pth'
-}
 
 
 class Normalization(nn.Module):
@@ -83,8 +70,8 @@ torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
 transform = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
+    transforms.Resize(342),
+    transforms.CenterCrop(299),
     transforms.ToTensor()
 ])
 print('loading dataset...')
@@ -94,10 +81,16 @@ train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_w
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 print('building model...')
-model = model_list[args.model]
-model.load_state_dict(torch.load(model_weights[args.model]))
-# model = gcv.models.resnet50(pretrained=True, dilated=False, deep_base=False)
-clf = Classifier(model)
+config, resmodel = get_model()
+net = resmodel.net
+
+checkpoint = torch.load(args.weight)
+if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
+    resmodel.load_state_dict(checkpoint['state_dict'])
+else:
+    resmodel.load_state_dict(checkpoint)
+
+clf = Classifier(net)
 clf.to(device)
 clf = nn.DataParallel(clf)
 clf.eval()
@@ -107,11 +100,11 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
 
-x_op = tf.placeholder(tf.float32, shape=(None, 3, 224, 224))
+x_op = tf.placeholder(tf.float32, shape=(None, 3, 299, 299))
 y_op = tf.placeholder(tf.int64, shape=(BATCH_SIZE,))
 onehot_op = tf.one_hot(y_op, 1000)
 
-tf_model_fn = convert_pytorch_model_to_tf(clf)
+tf_model_fn = convert_pytorch_model_to_tf(clf, out_dims=1000)
 cleverhans_model = CallableModelWrapper(tf_model_fn, output_layer='logits')
 
 # pgd_op = MadryEtAl(cleverhans_model, sess=sess)
@@ -137,14 +130,20 @@ for step, (images, labels) in enumerate(train_loader):
     labels = labels.to(device)
 
     # ==================================================================================================================
-    # adv_x = sess.run(adv_x_op, feed_dict={x_op: images, y_op: labels})
+    # try:
+    #     adv_x = sess.run(adv_x_op, feed_dict={x_op: images, y_op: labels})
+    # except:
+    #     y_op = tf.placeholder(tf.int64, shape=(images.size(0),))
+    #     onehot_op = tf.one_hot(y_op, 1000)
+    #     adv_x_op = pgd_op.generate(x_op, y=onehot_op, **pgd_params)
+    #     adv_x = sess.run(adv_x_op, feed_dict={x_op: images, y_op: labels})
     # adv_x = torch.from_numpy(adv_x)
     #
     # for n in range(images.size(0)):
     #     total += 1
     #     filename = os.path.basename(train_set.imgs[total][0]).replace('.JPEG', '.png')
     #     classname = train_set.classes[labels[n].item()]
-    #     directory = os.path.join(SAVE_DIR, classname)
+    #     directory = os.path.join(SAVE_DIR, PHASE, classname)
     #     if not os.path.exists(directory):
     #         os.makedirs(directory)
     #     utils.save_image(adv_x[n], os.path.join(directory, filename))
