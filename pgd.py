@@ -24,7 +24,8 @@ parser.add_argument('--imagenet_dir', type=str, required=True)
 parser.add_argument('--save_dir', type=str, required=True)
 parser.add_argument('-p', '--phase', default='train', type=str)
 parser.add_argument('-b', '--batch_size', default=256, type=int)
-parser.add_argument('-m', '--model', type=str, choices=['AlexNet', 'VGG16', 'ResNet50', 'DenseNet121'], required=True)
+parser.add_argument('-m', '--model', type=str, choices=['AlexNet', 'VGG16', 'ResNet50', 'DenseNet121', 'Inception_v3'],
+                    required=True)
 
 args = parser.parse_args()
 
@@ -39,16 +40,18 @@ BATCH_SIZE = args.batch_size
 os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
 model_list = {
-    'AlexNet': models.alexnet(),
-    'VGG16': models.vgg16_bn(),
-    'ResNet50': models.resnet50(),
-    'DenseNet121': models.densenet121()
+    'AlexNet': models.alexnet,
+    'VGG16': models.vgg16_bn,
+    'ResNet50': models.resnet50,
+    'DenseNet121': models.densenet121,
+    'Inception_v3': models.inception_v3
 }
 model_weights = {
     'AlexNet': 'xxx/alexnet-owt-4df8aa71.pth',
     'VGG16': 'xxx/vgg16_bn-6c64b313.pth',
     'ResNet50': 'xxx/resnet50-19c8e357.pth',
-    'DenseNet121': 'xxx/densenet121-a639ec97.pth'
+    'DenseNet121': 'xxx/densenet121-a639ec97.pth',
+    'Inception_v3': 'xxx/inception_v3_google-1a9a5a14.pth'
 }
 
 
@@ -82,11 +85,18 @@ np.random.seed(42)
 torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
-transform = transforms.Compose([
-    transforms.Resize(256),
-    transforms.CenterCrop(224),
-    transforms.ToTensor()
-])
+if 'inc' in args.model.lower():
+    transform = transforms.Compose([
+        transforms.Resize(342),
+        transforms.CenterCrop(299),
+        transforms.ToTensor()
+    ])
+else:
+    transform = transforms.Compose([
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        transforms.ToTensor()
+    ])
 print('loading dataset...')
 train_set = datasets.ImageFolder(os.path.join(IMAGENET_DIR, PHASE), transform=transform)
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
@@ -94,7 +104,7 @@ train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_w
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 print('building model...')
-model = model_list[args.model]
+model = model_list[args.model]()
 model.load_state_dict(torch.load(model_weights[args.model]))
 # model = gcv.models.resnet50(pretrained=True, dilated=False, deep_base=False)
 clf = Classifier(model)
