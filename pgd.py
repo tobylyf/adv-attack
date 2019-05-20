@@ -86,17 +86,17 @@ torch.manual_seed(42)
 torch.cuda.manual_seed_all(42)
 
 if 'inc' in args.model.lower():
-    transform = transforms.Compose([
-        transforms.Resize(342),
-        transforms.CenterCrop(299),
-        transforms.ToTensor()
-    ])
+    resize = 342
+    crop = 299
 else:
-    transform = transforms.Compose([
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        transforms.ToTensor()
-    ])
+    resize = 256
+    crop = 224
+
+transform = transforms.Compose([
+    transforms.Resize(resize),
+    transforms.CenterCrop(crop),
+    transforms.ToTensor()
+])
 print('loading dataset...')
 train_set = datasets.ImageFolder(os.path.join(IMAGENET_DIR, PHASE), transform=transform)
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, pin_memory=True)
@@ -117,7 +117,7 @@ config = tf.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.Session(config=config)
 
-x_op = tf.placeholder(tf.float32, shape=(None, 3, 224, 224))
+x_op = tf.placeholder(tf.float32, shape=(None, 3, crop, crop))
 y_op = tf.placeholder(tf.int64, shape=(BATCH_SIZE,))
 onehot_op = tf.one_hot(y_op, 1000)
 
